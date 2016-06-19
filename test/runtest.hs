@@ -1,229 +1,240 @@
-{-# LANGUAGE CPP #-}
 module Main where
 
 import Control.Monad
-import Data.Char
+import Data.Typeable
+import Data.Proxy
 import Data.List
-import Data.Maybe
-import qualified Data.Set as S
-import Data.Time.Clock
+import Data.Map.Strict as Map
+import Data.IntSet as ISet
+
 import System.Directory
 import System.Environment
-import System.FilePath
-import System.Exit
+import System.Process
 import System.Info
 import System.IO
-import System.Process
 
--- Because GHC earlier than 7.8 lacks setEnv
--- Install the setenv package on Windows.
-#if __GLASGOW_HASKELL__ < 708
-#ifndef mingw32_HOST_OS
-import qualified System.Posix.Env as PE(setEnv)
+import Options.Applicative
+import Test.Tasty
+import Test.Tasty.Golden
+import Test.Tasty.Runners
+import Test.Tasty.Options
+import Test.Tasty.Ingredients.Rerun
 
-setEnv k v = PE.setEnv k v True
-#else
-import System.SetEnv(setEnv)
-#endif
-#endif
+import Paths_idris as Paths
 
-data Flag = Update | Diff | ShowOutput | Quiet | Time deriving (Eq, Show, Ord)
+---------------------------------------------------------------------- [ Types ]
 
-type Flags = S.Set Flag
+-- A TestFamily groups tests that share the same theme
+data TestFamily = TestFamily {
+  name :: String, -- A proper name for the test family that will be displayed
+  shorthand :: String, -- A shorter lowcase name to use in filenames
+  indexes :: IntSet -- The indexes of expected tests ; must be >= 1 and < 1000
+} deriving (Show)
 
-data Status = Success | Failure | Updated deriving (Eq, Show)
+type Environment = [(String, String)]
+type Flags = [String]
 
-data Config = Config {
-    flags :: Flags,
-    idrOpts :: [String],
-    tests :: [String]
-} deriving (Show, Eq)
+-------------------------------------------------------------------- [ Options ]
 
-isQuiet conf = Quiet `S.member` (flags conf)
-showOutput conf = ShowOutput `S.member` (flags conf)
-showTime conf = Time  `S.member` (flags conf)
-showDiff conf = Diff `S.member` (flags conf)
-doUpdate conf = Update  `S.member` (flags conf)
+-- The `--node` option makes idris use the node code generator
+-- As a consequence, incompatible tests are removed
 
-checkTestName :: String -> Bool
-checkTestName d = (all isDigit $ take 3 $ reverse d)
-                    && (not $ isInfixOf "disabled" d)
+newtype Node = Node Bool deriving (Eq, Ord, Typeable)
 
-enumTests :: IO [String]
-enumTests = do
-    cwd <- getCurrentDirectory
-    dirs <- getDirectoryContents cwd
-    return $ sort $ filter checkTestName dirs
+nodeArg = "node"
+nodeHelp = "Performs the tests with the node code generator"
+instance IsOption Node where
+  defaultValue = Node False
+  parseValue = fmap Node . safeRead
+  optionName = return nodeArg
+  optionHelp = return nodeHelp
+  optionCLParser = fmap Node $ switch (long nodeArg <> help nodeHelp)
 
-parseFlag :: String -> Maybe Flag
-parseFlag s = case s of
-    "-u" -> Just Update
-    "-d" -> Just Diff
-    "-s" -> Just ShowOutput
-    "-t" -> Just Time
-    "-q" -> Just Quiet
-    _    -> Nothing
+ingredients :: [Ingredient]
+ingredients = [rerunningTests [consoleTestReporter],
+               includingOptions [Option (Proxy :: Proxy Node)] ]
 
-parseFlags :: [String] -> (S.Set Flag, [String])
-parseFlags xs = (S.fromList f, i)
-    where
-        f = catMaybes $ map parseFlag fl
-        (fl, i) = partition (\s -> parseFlag s /= Nothing) xs
+----------------------------------------------------------------------- [ Core ]
 
-parseArgs :: [String] -> IO Config
-parseArgs args = do
-    (tests, rest) <- case args of
-        ("all":xs) -> do
-            et <- enumTests
-            return (et, xs)
-        ("without":xs) -> do
-            t <- enumTests
-            (blacklist, ys) <- return $ break (== "opts") xs
-            return (t \\ blacklist, ys \\ ["opts"])
-        (x:xs) -> do
-            exists <- doesDirectoryExist x
-            return (if checkTestName x && exists then [x] else [], xs)
-        [] -> do
-            et <- enumTests
-            return (et, [])
-    let (testOpts, idOpts) = parseFlags rest
-    return $ Config testOpts idOpts tests
+-- Turns the collection of TestFamily into a Tree usable by Tasty
+goldenTests :: [TestFamily] -> Flags -> Environment -> TestTree
+goldenTests testFamilies flags env = testGroup
+  "Regression and sanity tests"
+  (fmap makeGoldenTestsFamily testFamilies) where
+    makeGoldenTestsFamily (TestFamily name shorthand indexes) =
+      testGroup name (fmap (makeGoldenTest . indexToString)
+                           (ISet.toList indexes)) where
+        makeGoldenTest suffix =
+          let propername = name ++ " " ++ suffix
+              file = (+/) $ testDirectory +/ (shorthand ++ suffix) in
+              goldenVsFile propername 
+                     (file "expected")
+                     (file "output")
+                     (runTest file flags env) 
 
+
+-- Runs a test script
 -- "bash" needed because Haskell has cmd as the default shell on windows, and
 -- we also want to run the process with another current directory, so we get
 -- this thing.
-runInShell :: String -> [String] -> IO (ExitCode, String)
-runInShell test opts = do
-    (ec, output, _) <- readCreateProcessWithExitCode
-                            ((proc "bash" ("run":opts)) { cwd = Just test,
-                                                          std_out = CreatePipe })
-                            ""
-    return (ec, output)
+runTest :: (String -> String) -> [String] -> Environment -> IO ()
+runTest file flags env = do
+  let bash = (proc "bash" ("run" : flags)) {cwd = Just (file ""),
+                                            std_out = CreatePipe,
+                                            env = Just env}
+  (_, output, _) <- readCreateProcessWithExitCode bash ""
+  writeFile (file "output") output
 
-runTest :: Config -> String -> IO Status
-runTest conf test = do
-    -- don't touch the current directory as we want to run these things
-    -- in parallel in the future
-    let inTest s = test ++ "/" ++ s
-    t1 <- getCurrentTime
-    (exitCode, output) <- runInShell test (idrOpts conf)
-    t2 <- getCurrentTime
-    expected <- readFile $ inTest "expected"
-    writeFile (inTest "output") output
-    res <- if (norm output == norm expected)
-                then do putStrLn $ test ++ " finished...success"
-                        return Success
-                else if doUpdate conf
-                    then do putStrLn $ test ++ " finished...UPDATE"
-                            writeFile (inTest "expected") output
-                            return Updated
-                    else do putStrLn $ test ++ " finished...FAILURE"
-                            _ <- rawSystem "diff" [inTest "output", inTest "expected"]
-                            return Failure
-    when (showTime conf) $ do
-        let dt = diffUTCTime t2 t1
-        putStrLn $ "Duration of " ++ test ++ " was " ++ show dt
-    return res
-  where 
-    -- just pretend that backslashes are slashes for comparison
-    -- purposes to avoid path problems, so don't write any tests
-    -- that depend on that distinction in other contexts.
-    -- Also rewrite newlines for consistency.
-       norm ('\r':'\n':xs) = '\n' : norm xs
-       norm ('\\':xs) = '/' : norm xs
-       norm (x : xs) = x : norm xs
-       norm [] = []
-
-printStats :: Config -> [Status] -> IO ()
-printStats conf stats = do
-    let total = length stats
-    let successful = length $ filter (== Success) stats
-    let failures = length $ filter (== Failure) stats
-    let updates = length $ filter (== Updated) stats
-    putStrLn "\n----"
-    putStrLn $ show total ++ " tests run: " ++ show successful ++ " succesful, "
-                ++ show failures ++ " failed, " ++ show updates ++ " updated."
-    let failed = map fst $ filter ((== Failure) . snd) $ zip (tests conf) stats
-    when (failed /= []) $ do
-        putStrLn "\nFailed tests:"
-        mapM_ putStrLn failed
-        putStrLn ""
-
-runTests :: Config -> IO Bool
-runTests conf = do
-    stats <- mapM (runTest conf) (tests conf)
-    unless (isQuiet conf) $ printStats conf stats
-    return $ all (== Success) stats
-
-runShow :: Config -> IO Bool
-runShow conf = do
-    mapM_ (\t -> callProcess "cat" [t++"/output"]) (tests conf)
-    return True
-
-runDiff :: Config -> IO Bool
-runDiff conf = do
-    mapM_ (\t -> do putStrLn $ "Differences in " ++ t ++ ":"
-                    ec <- rawSystem "diff" [t++"/output", t++"/expected"]
-                    when (ec == ExitSuccess) $ putStrLn "No differences found.")
-          (tests conf)
-    return True
-
-whisper :: Config -> String -> IO ()
-whisper conf s = do unless (isQuiet conf) $ putStrLn s
-
-isWindows :: Bool
-isWindows = os `elem` ["win32", "mingw32", "cygwin32"]
-
-setPath :: Config -> IO ()
-setPath conf = do
-    maybeEnv <- lookupEnv "IDRIS"
-    idrisExists <- case maybeEnv of
-        Just idrisExe -> do
-            let exeExtension = if isWindows then ".exe" else ""
-            doesFileExist (idrisExe ++ exeExtension)
-        Nothing -> return False
-    if (idrisExists)
-        then do
-            idrisAbs <- makeAbsolute $ fromMaybe "" maybeEnv
-            setEnv "IDRIS" idrisAbs
-            whisper conf $ "Using " ++ idrisAbs
-        else do
-            path <- getEnv "PATH"
-            setEnv "IDRIS" ""
-            let sandbox = "../.cabal-sandbox/bin"
-            hasBox <- doesDirectoryExist sandbox
-            bindir <- if hasBox
-                            then do
-                                whisper conf $ "Using Cabal sandbox at " ++ sandbox
-                                makeAbsolute sandbox
-                            else do
-                                stackExe <- findExecutable "stack"
-                                case stackExe of
-                                    Just stack -> do
-                                        out <- readProcess stack ["path", "--dist-dir"] []
-                                        stackDistDir <- return $ takeWhile (/= '\n') out
-                                        let stackDir = "../" ++ stackDistDir ++ "/build/idris"
-                                        whisper conf $ "Using stack work dir at " ++ stackDir
-                                        makeAbsolute stackDir
-                                    Nothing -> return ""
-            when (bindir /= "") $ setEnv "PATH" (bindir ++ [searchPathSeparator] ++ path)
-
+-- Called by cabal without options
+-- Options available by manual invocation:
+-- * `--reuse-`, so it doesn't perform tests that have already been performed
+-- * `--node` to test against the node code generator
+main :: IO ()
 main = do
-    hSetBuffering stdout LineBuffering
-    withCabal <- doesDirectoryExist "test"
-    when withCabal $ do
-      setCurrentDirectory "test"
-    args <- getArgs
-    conf <- parseArgs args
-    setPath conf
-    t1 <- getCurrentTime
-    res <- case tests conf of
-                [] -> return True
-                xs | showOutput conf -> runShow conf
-                xs | showDiff conf -> runDiff conf
-                xs -> runTests conf
-    t2 <- getCurrentTime
-    when (showTime conf) $ do
-        let dt = diffUTCTime t2 t1
-        putStrLn $ "Duration of Entire Test Suite was " ++ show dt
-    unless res exitFailure
+  -- Copying the environment then adding the IDRIS variable
+  -- Check if this works on every platform
+  env <- getEnvironment
+  idrisPath <- getIdrisPath
+  entries <- Main.listDirectory testDirectory
+  directories <- filterM (doesDirectoryExist . ((+/) testDirectory)) entries
+  let testFamilies = populate directories testFamiliesMap
+  defaultMainWithIngredients ingredients $
+    askOption $ \(Node node) ->
+      goldenTests
+        (fmap snd . Map.toList $
+          (if node then removeNodeIncompat else id) testFamilies)
+          ((if node then ["--codegen node"] else []) ++ idrisFlags)
+        (("IDRIS", idrisPath) : env)
+
+----------------------------------------------------------------------- [ Data ]
+
+-- The data to instanciate the collection of TestFamilies
+-- The first column is the proper name
+-- The second column is the prefix of the directories
+testFamiliesData :: [(String, String)]
+testFamiliesData = [
+  ("Basic",                "basic"           ),
+  ("Bignum",               "bignum"          ),
+  ("Bounded",              "bounded"         ),
+  ("Corecords",            "corecords"       ),
+  ("De-elaboration",       "delab"           ),
+  ("Directives",           "directives"      ),
+  ("Disambiguation",       "disambig"        ),
+  ("Documentation",        "docs"            ),
+  ("DSL",                  "dsl"             ),
+  ("Effects",              "effects"         ),
+  ("Errors",               "error"           ),
+  ("FFI",                  "ffi"             ),
+  ("Folding",              "folding"         ),
+  ("Idris documentation",  "idrisdoc"        ),
+  ("Interactive editing",  "interactive"     ),
+  ("Interfaces",           "interfaces"      ),
+  ("IO monad",             "io"              ),
+  ("Literate programming", "literate"        ),
+  ("Meta-programming",     "meta"            ),
+  ("Packages",             "pkg"             ),
+  ("Primitive types",      "primitives"      ),
+  ("Theorem proving",      "proof"           ),
+  ("Proof search",         "proofsearch"     ),
+  ("Pruviloj",             "pruviloj"        ),
+  ("Quasiquotations",      "quasiquote"      ),
+  ("Records",              "records"         ),
+  ("Regressions",          "reg"             ),
+  ("Regression (loner)",   "regression"      ),
+  ("Source location",      "sourceLocation"  ),
+  ("Syntactic sugar",      "sugar"           ),
+  ("Syntax",               "syntax"          ),
+  ("Tactics",              "tactics"         ),
+  ("Totality checking",    "totality"        ),
+  ("Uniqueness types",     "unique"          ),
+  ("Universes",            "universes"       ),
+  ("Views",                "views"           )]
+
+-- Maps some TestFamilies to tests that must *not* be performed
+-- when using the node code generator
+nodeIncompat :: Map String IntSet
+nodeIncompat = fmap ISet.fromList $
+  Map.fromList [("tutorial",   [7]),
+                ("sugar",      [4]),
+                ("reg",        [29, 52]),
+                ("io",         [1, 3]),
+                ("dsl",        [2]),
+                ("effects",    [1, 2]),
+                ("basic",      [7, 11]),
+                ("ffi",        [6, 7, 8]),
+                ("primitives", [5, 6]),
+                ("views",      [3])]
+
+testDirectory :: String
+testDirectory = "test"
+
+idrisFlags :: [String]
+idrisFlags = []
+
+----------------------------------------------------------------------- [ Misc ]
+
+-- A safe version of `read`
+readMaybe :: Read a => String -> Maybe a
+readMaybe s = case reads s of
+                [(r, "")] -> Just r
+                _         -> Nothing
+
+-- Adds a test to a family using its index
+addIndex :: Int -> TestFamily -> TestFamily
+addIndex index tf = tf { indexes = ISet.insert index (indexes tf) }
+
+-- Adds a test to a family directly via the collection
+insertIndex :: String -> Int -> Map String TestFamily -> Map String TestFamily
+insertIndex sh index = adjust (addIndex index) sh
+
+-- Adds tests in bulk from a collection of test directories
+populate :: [String] -> Map String TestFamily -> Map String TestFamily
+populate dirs tfs = Data.List.foldr f tfs dirs where
+  f dir tfs = if length dir > 3
+                then let (pref, suff) = splitAt (length dir - 3) dir in
+                  case readMaybe suff :: Maybe Int of
+                    Just index -> insertIndex pref index tfs
+                    Nothing -> tfs
+                else tfs
+
+-- An empty map of TestFamily
+-- The key is the shorthand
+testFamiliesMap :: Map String TestFamily
+testFamiliesMap = Map.fromList (fmap instanciate testFamiliesData) where
+  instanciate (name, shorthand) =
+    (shorthand, TestFamily name shorthand ISet.empty)
+
+-- Removes the undesirable tests from the collecton of families when
+-- using the node code generator
+removeNodeIncompat :: Map String TestFamily -> Map String TestFamily
+removeNodeIncompat tfs =
+  differenceWith removeBadIndexes tfs nodeIncompat where
+    removeBadIndexes tf badIndexes =
+      Just (tf { indexes = ISet.difference (indexes tf) badIndexes })
+
+exeExtension :: String
+exeExtension =
+  if (os `elem` ["win32", "mingw32", "cygwin32"]) then ".exe" else ""
+
+-- Should always output a 3-charater string
+indexToString :: Int -> String
+indexToString index = let str = show index in
+                          (replicate (3 - length str) '0') ++ str
+
+--NOTE: We should Check if the cabal hack works on every platform
+getIdrisPath :: IO (String)
+getIdrisPath = do
+  binDir <- getBinDir
+  return (binDir +/ ("idris" ++ exeExtension))
+
+-- Haskell's ls
+listDirectory :: String -> IO ([String])
+listDirectory d = do
+  entries <- getDirectoryContents d
+  return $ entries Data.List.\\ [".", ".."]
+
+infixr 7 +/
+-- Should form a path
+(+/) :: String -> String -> String
+(+/) x y = x ++ ('/' : y)
+

@@ -156,7 +156,6 @@ Extra-source-files:
                        libs/pruviloj/Pruviloj/Derive/*.idr
                        libs/pruviloj/Pruviloj/Internals/*.idr
 
-                       test/Makefile
                        test/runtest.hs
 
                        test/regression001/run
@@ -1126,6 +1125,10 @@ Test-suite regression-and-sanity-tests
                , filepath
                , directory
                , haskeline >= 0.7
+               , optparse-applicative >= 0.11 && < 0.13
+               , tasty >= 0.8
+               , tasty-golden >= 2.0
+               , tasty-rerun >= 1.0.0
                , transformers
 
   ghc-prof-options: -auto-all -caf-all

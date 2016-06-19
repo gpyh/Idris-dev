@@ -111,7 +111,7 @@ before_script:
   - tar -xf Idris-dev/dist/idris*.tar.gz
   - cd idris*
 script:
-  - cabal configure -f FFI -f CI
+  - cabal configure -f FFI -f CI --enable-tests
   - cabal build
   - cabal copy
   - cabal register
@@ -119,7 +119,7 @@ script:
       cppcheck -i 'mini-gmp.c' rts;
     fi
   - for test in $TESTS; do
-      echo "make -j2 $test";
-      make -j2 $test;
+      echo "make TEST-JOBS=2 $test";
+      make TEST-JOBS=2 $test;
     done
   - cd benchmarks && ./build.pl && ./run.pl && cd ..

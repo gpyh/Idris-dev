@@ -1,4 +1,7 @@
-.PHONY: build configure doc install linecount nodefault pinstall lib_clean relib fast test_c test lib_doc lib_doc_clean user_doc_html user_doc_pdf user_docs
+.PHONY: build configure doc install linecount nodefault pinstall lib_clean relib fast test_js test_c test test_clean lib_doc lib_doc_clean user_doc_html user_doc_pdf user_docs
+
+TEST-JOBS=
+TEST-ARGS=
 
 include config.mk
 -include custom.mk
@@ -20,13 +23,20 @@ build: dist/setup-config
 test: doc test_c
 
 test_c:
-	$(MAKE) -C test IDRIS=../dist/build/idris/idris test
+	$(CABAL) test --test-options \
+		"${TEST-ARGS} --rerun-update +RTS -N${TEST-JOBS} -RTS"
 
 test_js:
-	$(MAKE) -C test IDRIS=../dist/build/idris/idris test_js
+	$(CABAL) test --test-options \
+		"${TEST-ARGS} --node --rerun-update +RTS -N${TEST-JOBS} -RTS"
 
-test_timed:
-	$(MAKE) -C test IDRIS=../dist/build/idris/idris time
+test_update:
+	$(CABAL) test --test-options \
+		"${TEST-ARGS} --accept +RTS -N${TEST-JOBS} -RTS"
+
+test_clean:
+	rm -f test/*~
+	rm -f test/*/output
 
 lib_clean:
 	$(MAKE) -C libs IDRIS=../../dist/build/idris/idris RTS=../../dist/build/rts/libidris_rts clean
