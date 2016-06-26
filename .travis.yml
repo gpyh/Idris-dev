@@ -4,15 +4,9 @@ language: c
 
 addons:
   apt:
-    sources:
+    sources: &sources
       - hvr-ghc
-    packages:
-      - ghc-7.6.3
-      - ghc-7.8.4
-      - ghc-7.10.2
-      - cabal-install-1.20
-      - cabal-install-1.22
-      # test dependencies
+    packages: &testdeps
       - expect
       - cppcheck
       - hscolour
@@ -23,18 +17,39 @@ matrix:
       # separate caches for different compiler versions
       # until https://github.com/travis-ci/travis-ci/issues/4393 is resolved
       compiler: ": #GHC 7.6.3"
+      addons:
+        apt:
+          sources: *sources
+          packages:
+            - *testdeps
+            - ghc-7.6.3
+            - cabal-install-1.20
     # - env: CABALVER="1.20" GHCVER="7.8.4" TESTS="lib_doc doc"
     #   compiler: ": #GHC 7.8.4"
     # - env: CABALVER="1.20" GHCVER="7.8.4" TESTS="test_js"
     #   compiler: ": #GHC 7.8.4"
     - env: CABALVER="1.20" GHCVER="7.8.4" TESTS="test_c"
       compiler: ": #GHC 7.8.4"
+      addons:
+        apt:
+          sources: *sources
+          packages:
+            - *testdeps
+            - ghc-7.8.4
+            - cabal-install-1.20
     # - env: CABALVER="1.22" GHCVER="7.10.2" TESTS="lib_doc doc"
     #   compiler: ": #GHC 7.10.2"
     # - env: CABALVER="1.22" GHCVER="7.10.2" TESTS="test_js"
     #   compiler: ": #GHC 7.10.2"
     - env: CABALVER="1.22" GHCVER="7.10.2" TESTS="test_c"
       compiler: ": #GHC 7.10.2"
+      addons:
+        apt:
+          sources: *sources
+          packages:
+            - *testdeps
+            - ghc-7.10.2
+            - cabal-install-1.22
 
 cache:
   directories:
