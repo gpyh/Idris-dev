@@ -1,35 +1,42 @@
-language: haskell
+language: c
 
 sudo: false
 
 addons:
   apt:
-    sources:
+    sources: &sources
       - hvr-ghc
-    packages:
-      - cabal-install-1.20
-      - cabal-install-1.22
-      # test dependencies
+    packages: &testdeps
       - expect
       - cppcheck
       - hscolour
 
 matrix:
   include:
-    - env: CABALVER="1.20" TESTS="test_c"
-      ghc: 7.6
-    # - env: CABALVER="1.20" GHCVER="7.8.4" TESTS="lib_doc doc"
-    #   compiler: ": #GHC 7.8.4"
-    # - env: CABALVER="1.20" GHCVER="7.8.4" TESTS="test_js"
-    #   compiler: ": #GHC 7.8.4"
-    - env: CABALVER="1.20" TESTS="test_c"
-      ghc: 7.8
-    # - env: CABALVER="1.22" GHCVER="7.10.2" TESTS="lib_doc doc"
-    #   compiler: ": #GHC 7.10.2"
-    # - env: CABALVER="1.22" GHCVER="7.10.2" TESTS="test_js"
-    #   compiler: ": #GHC 7.10.2"
-    - env: CABALVER="1.22" TESTS="test_c"
-      ghc: 7.10
+    - env: TESTS="test_c"
+      addons:
+        apt:
+          sources: *sources
+          packages:
+            - *testdeps
+            - cabal-install-1.20
+            - ghc-7.6.3
+    - env: TESTS="test_c"
+      addons:
+        apt:
+          sources: *sources
+          packages:
+            - *testdeps
+            - cabal-install-1.20
+            - ghc-7.8.4
+    - env: TESTS="test_c"
+      addons:
+        apt:
+          sources: *sources
+          packages:
+            - *testdeps
+            - cabal-install-1.22
+            - ghc-7.10.2
 
 cache:
   directories:
@@ -44,7 +51,7 @@ before_install:
   # What is this for?
   - unset CC
   # I highly doubt this is useful (at least the GHC bit)
-  - export PATH=/opt/cabal/$CABALVER/bin:$HOME/.cabal/bin:$PATH
+  - export PATH=$(echo /opt/ghc/*)/bin:$(echo /opt/cabal/*)/bin:$HOME/.cabal/bin:$PATH
   - env
 
 install:
