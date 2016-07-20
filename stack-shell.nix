@@ -2,7 +2,7 @@ with (import <nixpkgs> {});
 
 let
   # MUST match resolver in stack.yaml
-  resolver = haskell.packages.lts-6_4.ghc;
+  resolver = haskell.packages.lts-6_5.ghc;
 
   native_libs = [
     libffi
@@ -10,6 +10,7 @@ let
     ncurses
     gmp
     pkgconfig
+    nodejs
   ] ++ lib.optionals stdenv.isDarwin (with darwin.apple_sdk.frameworks; [
     Cocoa
     CoreServices

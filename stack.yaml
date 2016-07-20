@@ -13,5 +13,5 @@ extra-deps:
   - trifecta-1.6
 
 nix:
-  enable: false
+  enable: true
   shell-file: stack-shell.nix
