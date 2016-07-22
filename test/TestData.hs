@@ -4,52 +4,53 @@ import Data.IntMap as IMap
 import Data.Map.Strict as Map
 import Data.Set as Set
 
-data Codegen = C | JS deriving (Show, Eq, Ord)
 type Index = Int
-data CompatCodegen = ANY | C_CG | JS_CG | NONE
+
+
+-- A record to hold the metadata of a test
+data TestData = TestData {
+  -- The name of the test, which should also be the name of the subdirectory
+  -- This will be computed from `id` and `testsMap` in TestFamily
+  testName :: String,
+  -- The code generator that the test is compatible with ; see below
+  compatCodegen :: CompatCodegen
+}
+
+data CompatCodegen = ANY -- the test is compatible with any code generator
+                   | C_CG -- only compatible with the c code generator
+                   | NODE_CG -- only compatible with the node code generator
+                   | NONE -- does not perform code generation
+                   deriving (Eq, Ord, Show)
 
 -- A TestFamily groups tests that share the same theme
 data TestFamily = TestFamily {
   -- A shorter lowcase name to use in filenames
   id :: String,
   -- A proper name for the test family that will be displayed
-  name :: String,
-  -- A map of test metadata:
-  --   - The key is the index (>=1 && <1000)
-  --   - The value is the set of compatible code generators,
-  --   or Nothing if the test doesn't depend on a code generator
-  tests :: IntMap (Maybe (Set Codegen))
+  familyName :: String,
+  -- A map of test metadata where the key is the index (>=1 && <1000)
+  testsMap :: IntMap CompatCodegen
 } deriving (Show)
 
-toCodegenSet :: CompatCodegen -> Maybe (Set Codegen)
-toCodegenSet compatCodegen = fmap Set.fromList mList where
-  mList = case compatCodegen of
-            ANY   -> Just [ C, JS ]
-            C_CG  -> Just [ C ]
-            JS_CG -> Just [ JS ]
-            NONE  -> Nothing
+-- Turns a TestFamily into the list of tests metada is holds
+tests :: TestFamily -> [TestData]
+tests (TestFamily id _ tests) = IMap.elems $ IMap.mapWithKey mkTest tests where
+  mkTest index compatCodegen = TestData (id ++ indexToString index) compatCodegen
 
--- The map of TestFamily
--- The key is the id of the test family
-testFamilies :: Map String TestFamily
-testFamilies = Map.fromList (fmap instanciate testFamiliesData) where
-  instanciate (id, name, testsData) = (id, TestFamily id name tests) where
-    tests = IMap.fromList (fmap makeSetCodegen testsData)
-    makeSetCodegen (index, codegens) = (index, toCodegenSet codegens)
+-- Should always output a 3-charater string from a postive Int
+indexToString :: Int -> String
+indexToString index = let str = show index in
+                          (replicate (3 - length str) '0') ++ str
 
-testFamiliesForCodegen :: Codegen -> Map String TestFamily
-testFamiliesForCodegen codegen =
-  Map.map (\testFamily -> testFamily {tests = IMap.filter f (tests testFamily)})
-          testFamilies
-    where
-      f mCodegens = case mCodegens of
-                     Just codegens -> Set.member codegen codegens
-                     Nothing       -> True
-
+-- The list of all TestFamily
+testFamilies :: [TestFamily]
+testFamilies = fmap instanciate testFamiliesData where
+  instanciate (id, name, testsData) =
+    TestFamily id name (IMap.fromList testsData)
 
 -- The data to instanciate testFamilies
--- The first column is the id
--- The second column is the proper name (the prefix of the subfolders)
+-- The first column is the id (the prefix of the subfolders)
+-- The second column is the proper name
 -- The third column is the data for each test
 testFamiliesData :: [(String, String, [(Index, CompatCodegen)])]
 testFamiliesData = [
@@ -62,16 +63,16 @@ testFamiliesData = [
       (  6, ANY  ),
       (  7, C_CG ),
       (  8, ANY  ),
-      (  9, ANY  ),
+      (  9, NONE ),
       ( 10, ANY  ),
       ( 11, C_CG ),
       ( 12, ANY  ),
       ( 13, ANY  ),
-      ( 14, ANY  ),
+      ( 14, NONE ),
       ( 15, ANY  ),
-      ( 16, ANY  ),
-      ( 17, ANY  ),
-      ( 18, ANY  )]),
+      ( 16, NONE ),
+      ( 17, NONE ),
+      ( 18, NONE )]),
   ("bignum",          "Bignum",
     [ (  1, ANY  ),
       (  2, ANY  )]),
@@ -83,21 +84,21 @@ testFamiliesData = [
   ("delab",           "De-elaboration",
     [ (  1, ANY  )]),
   ("directives",      "Directives",
-    [ (  1, ANY  ),
-      (  2, ANY  )]),
+    [ (  1, NONE ),
+      (  2, NONE )]),
   ("disambig",        "Disambiguation",
-    [ (  2, ANY  )]),
+    [ (  2, NONE )]),
   ("docs",            "Documentation",
-    [ (  1, ANY  ),
-      (  2, ANY  ),
-      (  3, ANY  ),
-      (  4, ANY  ),
-      (  5, ANY  )]),
+    [ (  1, NONE  ),
+      (  2, NONE  ),
+      (  3, NONE  ),
+      (  4, NONE  ),
+      (  5, NONE  )]),
   ("dsl",             "DSL",
     [ (  1, ANY  ),
       (  2, C_CG ),
-      (  3, ANY  ),
-      (  4, ANY  )]),
+      (  3, NONE ),
+      (  4, NONE )]),
   ("effects",         "Effects",
     [ (  1, C_CG ),
       (  2, C_CG ),
@@ -105,19 +106,19 @@ testFamiliesData = [
       (  4, ANY  ),
       (  5, ANY  )]),
   ("error",           "Errors",
-    [ (  1, ANY  ),
+    [ (  1, NONE ),
       (  2, ANY  ),
-      (  3, ANY  ),
-      (  4, ANY  ),
-      (  5, ANY  ),
-      (  6, ANY  ),
-      (  7, ANY  ),
-      (  8, ANY  )]),
+      (  3, NONE ),
+      (  4, NONE ),
+      (  5, NONE ),
+      (  6, NONE ),
+      (  7, NONE ),
+      (  8, NONE )]),
   ("ffi",             "FFI",
     [ (  1, ANY  ),
       (  2, ANY  ),
       (  3, ANY  ),
-      (  4, ANY  ),
+      (  4, NONE ),
       (  5, ANY  ),
       (  6, C_CG ),
       (  7, C_CG ),
@@ -125,36 +126,36 @@ testFamiliesData = [
   ("folding",         "Folding",
     [ (  1 , ANY  )]),
   ("idrisdoc",        "Idris documentation",
-    [ (  1, ANY  ),
-      (  2, ANY  ),
-      (  3, ANY  ),
-      (  4, ANY  ),
-      (  5, ANY  ),
-      (  6, ANY  ),
-      (  7, ANY  ),
-      (  8, ANY  ),
-      (  9, ANY  )]),
+    [ (  1, NONE ),
+      (  2, NONE ),
+      (  3, NONE ),
+      (  4, NONE ),
+      (  5, NONE ),
+      (  6, NONE ),
+      (  7, NONE ),
+      (  8, NONE ),
+      (  9, NONE )]),
   ("interactive",     "Interactive editing",
-    [ (  1, ANY  ),
-      (  2, ANY  ),
-      (  3, ANY  ),
-      (  4, ANY  ),
+    [ (  1, NONE ),
+      (  2, NONE ),
+      (  3, NONE ),
+      (  4, NONE ),
       (  5, ANY  ),
-      (  6, ANY  ),
-      (  7, ANY  ),
-      (  8, ANY  ),
-      (  9, ANY  ),
-      ( 10, ANY  ),
-      ( 11, ANY  ),
-      ( 12, ANY  ),
-      ( 13, ANY  )]),
+      (  6, NONE ),
+      (  7, NONE ),
+      (  8, NONE ),
+      (  9, NONE ),
+      ( 10, NONE ),
+      ( 11, NONE ),
+      ( 12, NONE ),
+      ( 13, NONE )]),
   ("interfaces",      "Interfaces",
-    [ (  1, ANY  ),
+    [ (  1, NONE ),
       (  2, ANY  ),
       (  3, ANY  ),
       (  4, ANY  ),
-      (  5, ANY  ),
-      (  6, ANY  )]),
+      (  5, NONE ),
+      (  6, NONE )]),
   ("io",              "IO monad",
     [ (  1, C_CG ),
       (  2, ANY  ),
@@ -163,9 +164,9 @@ testFamiliesData = [
     [ (  1, ANY  )]),
   ("meta",            "Meta-programming",
     [ (  1, ANY  ),
-      (  2, ANY  ),
-      (  3, ANY  ),
-      (  4, ANY  )]),
+      (  2, NONE ),
+      (  3, NONE ),
+      (  4, NONE )]),
   ("pkg",             "Packages",
     [ (  1, ANY  ),
       (  2, ANY  ),
@@ -178,21 +179,21 @@ testFamiliesData = [
       (  5, C_CG ),
       (  6, C_CG )]),
   ("proof",           "Theorem proving",
-    [ (  1, ANY  ),
-      (  2, ANY  ),
+    [ (  1, NONE ),
+      (  2, NONE ),
       (  3, ANY  ),
-      (  4, ANY  ),
-      (  5, ANY  ),
-      (  6, ANY  ),
-      (  7, ANY  ),
-      (  8, ANY  ),
-      (  9, ANY  ),
+      (  4, NONE ),
+      (  5, NONE ),
+      (  6, NONE ),
+      (  7, NONE ),
+      (  8, NONE ),
+      (  9, NONE ),
       ( 10, ANY  ),
-      ( 11, ANY  )]),
+      ( 11, NONE )]),
   ("proofsearch",     "Proof search",
-    [ (  1, ANY  ),
-      (  2, ANY  ),
-      (  3, ANY  )]),
+    [ (  1, NONE ),
+      (  2, NONE ),
+      (  3, NONE )]),
   ("pruviloj",        "Pruviloj",
     [ (  1, ANY  )]),
   ("quasiquote",      "Quasiquotations",
@@ -210,27 +211,27 @@ testFamiliesData = [
       (  5, ANY  )]),
   ("reg",             "Regressions",
     [ (  2, ANY  ),
-      (  3, ANY  ),
+      (  3, NONE ),
       (  4, ANY  ),
       (  5, ANY  ),
-      (  6, ANY  ),
-      (  7, ANY  ),
-      ( 10, ANY  ),
+      (  6, NONE ),
+      (  7, NONE ),
+      ( 10, NONE ),
       ( 13, ANY  ),
       ( 16, ANY  ),
       ( 17, ANY  ),
-      ( 18, ANY  ),
+      ( 18, NONE ),
       ( 20, ANY  ),
-      ( 23, ANY  ),
+      ( 23, NONE ),
       ( 24, ANY  ),
       ( 25, ANY  ),
       ( 27, ANY  ),
-      ( 28, ANY  ),
+      ( 28, NONE ),
       ( 29, C_CG ),
       ( 31, ANY  ),
       ( 32, ANY  ),
-      ( 34, ANY  ),
-      ( 35, ANY  ),
+      ( 34, NONE ),
+      ( 35, NONE ),
       ( 39, ANY  ),
       ( 40, ANY  ),
       ( 41, ANY  ),
@@ -238,20 +239,20 @@ testFamiliesData = [
       ( 44, ANY  ),
       ( 45, ANY  ),
       ( 48, ANY  ),
-      ( 49, ANY  ),
-      ( 50, ANY  ),
+      ( 49, NONE ),
+      ( 50, NONE ),
       ( 52, C_CG ),
-      ( 54, ANY  ),
-      ( 55, ANY  ),
+      ( 54, NONE ),
+      ( 55, NONE ),
       ( 56, ANY  ),
       ( 67, ANY  ),
-      ( 68, ANY  ),
-      ( 69, ANY  ),
-      ( 70, ANY  ),
-      ( 72, ANY  ),
-      ( 75, ANY  )]),
-  ("regression",      "Regression (loner)",
-    [ (  1 , ANY  )]),
+      ( 68, NONE ),
+      ( 69, NONE ),
+      ( 70, NONE ),
+      ( 72, NONE ),
+      ( 75, NONE )]),
+  ("regression",      "Regression (aggregation)",
+    [ (  1 , NONE )]),
   ("sourceLocation",  "Source location",
     [ (  1 , ANY  )]),
   ("sugar",           "Syntactic sugar",
@@ -261,41 +262,41 @@ testFamiliesData = [
       (  4, C_CG ),
       (  5, ANY  )]),
   ("syntax",          "Syntax extensions",
-    [ (  1, ANY  ),
+    [ (  1, NONE ),
       (  2, ANY  )]),
   ("tactics",         "Tactics",
-    [ (  1, ANY  )]),
+    [ (  1, NONE )]),
   ("totality",        "Totality checking",
-    [ (  1, ANY  ),
-      (  2, ANY  ),
-      (  3, ANY  ),
+    [ (  1, NONE ),
+      (  2, NONE ),
+      (  3, NONE ),
       (  4, ANY  ),
       (  5, ANY  ),
-      (  6, ANY  ),
+      (  6, NONE ),
       (  7, ANY  ),
-      (  8, ANY  ),
-      (  9, ANY  ),
-      ( 10, ANY  ),
-      ( 11, ANY  ),
-      ( 12, ANY  ),
-      ( 13, ANY  ),
-      ( 14, ANY  ),
-      ( 15, ANY  )]),
+      (  8, NONE ),
+      (  9, NONE ),
+      ( 10, NONE ),
+      ( 11, NONE ),
+      ( 12, NONE ),
+      ( 13, NONE ),
+      ( 14, NONE ),
+      ( 15, NONE )]),
   ("tutorial",        "Tutorial examples",
-    [ (  1, ANY  ),
-      (  2, ANY  ),
-      (  3, ANY  ),
-      (  4, ANY  ),
-      (  5, ANY  ),
-      (  6, ANY  ),
+    [ (  1, NONE ),
+      (  2, NONE ),
+      (  3, NONE ),
+      (  4, NONE ),
+      (  5, NONE ),
+      (  6, NONE ),
       (  7, C_CG )]),
   ("unique",          "Uniqueness types",
     [ (  1, ANY  ),
-      (  2, ANY  ),
-      (  3, ANY  )]),
+      (  2, NONE ),
+      (  3, NONE )]),
   ("universes",       "Universes",
-    [ (  1, ANY  ),
-      (  2, ANY  )]),
+    [ (  1, NONE ),
+      (  2, NONE )]),
   ("views",           "Views",
     [ (  1, ANY  ),
       (  2, ANY  ),

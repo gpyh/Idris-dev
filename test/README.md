@@ -2,8 +2,8 @@
 
 ## Running the test suite
 
-Do `make test_c` or `make test_js`. It will run the tests in parallel and through `cabal test`.
-You can also manually call `cabal test` or `stack test`.
+Do `make test_c` to run the whole test suite. It will run in parallel, using `cabal test`. Tests that perform code generation will use the C backend. If you want to test the node code generator, do `make test_js`.
+You can also manually call `cabal test` or `stack test` ; this will test both the C code generator and the node code generator.
 
 ### Passing arguments
 
@@ -20,28 +20,31 @@ cabal test --test-options="--help"
 stack test --test-arguments="--help"
 ```
 
-Try it to learn more about the other arguments you can provide. Two are of particular interest: `--node` to test against the Node code generator and `--pattern <regex>` to only run the test that match the provided `<regex>`.
+Try it to learn more about the other arguments you can provide. Two are of particular interest:
+
+- `--codegen` takes a comma-separated list of code generators and will run the test suite with those. You can use any value that would otherwise be valid with the idris option of the same name. A code generator named `none` is used as a placeholder to run tests that don't involve code generation.
+- `--pattern` takes a regular expression and will only run the tests that match it.
 
 #### To idris
 
-You can pass arguments to idris in each of its invocation by the tests. There are two ways to this. You can either modify the `idrisFlags` term in `TestRun`, or set the `$IDRIS` environment variable accordingly
+You can pass arguments to idris in each of its invocation by the tests. There are two ways to this. You can either modify the `idrisFlags` term in `TestRun.hs`, or set the `$IDRIS` environment variable accordingly
 
 ### Specifying the number of parallel jobs
 
 With make, the test suite runs in parallel by default. You can specify the number of threads with `TEST-JOBS`. For stack and cabal, you need to explicitly enable parallelism as you would do with any other GHC-compiled executable. Examples:
 
 ```
-# Two test jobs via make
+# Two jobs via make
 make TEST-JOBS=2 test_c
-# Two test jobs via cabal
+# Two jobs via cabal
 cabal test --test-options="+RTS -N2 -RTS"
-# Two test jobs via stack
+# Two jobs via stack
 stack test --test-arguments="+RTS -N2 -RTS"
 ```
 
 ### Running only previously failed tests
 
-Because of the `--rerun-update` option, `make test_c` will create a `.tasty-rerun-log` in the root directory of the project. Each time the test suite is run, the file will be written with the result of the tests. The next time you do `make test`, you can specify the `rerun-filter` argument to, for example, only run previously failed tests. Valid values are given in the `--help`.
+Because of the `--rerun-update` option, `make test_c` (or `make test_js`) will create a `.tasty-rerun-log` in the root directory of the project. Each time the test suite is run, the file will be written with the result of the tests. The next time you do `make test_c`, you can specify the `rerun-filter` argument to, for example, only run previously failed tests. Valid values are given in the `--help`.
 
 ## Extending the test suite
 
@@ -131,18 +134,14 @@ and somewhat self-explanatory.
     test/foo042/*.idr
     ```
 
-### Specifying compatible backends
+### Specifying compatible code generators
 
-Some tests only make sense with specific code generators. Others don't generate code. You need to supply this information in `testFamiliesData`. Available values
-for the compatible backends are:
+Some tests only make sense with specific code generators. Others don't generate code. You need to supply this information in `testFamiliesData` with the type `CompatCodegen`. Available constructors are:
 
-- `ALL`: choose this if your test will work with any code generator
+- `ANY`: choose this if your test will work with any code generator
 - `C_CG`: choose this to only test against the C code generator
-- `JS_CG`: choose this to only test against the Node code generator
-- `NONE`: choose this if you don't want your test to be run with multiple code
-generators (mainly for tests that only perform type checking)
-
-Currently, `NONE` has the same effect as `ALL`, but this will change.
+- `NODE_CG`: choose this to only test against the Node code generator
+- `NONE`: choose this if your test doesn't perform code generation (i.e. type checking, REPL interation, documentation, etc.)
 
 ### Removing a test
 
@@ -164,3 +163,4 @@ stack test --test-arguments="--accept"
 ```
 
 "Accepted" tests are the ones that update the golden file. A test can still fail if the `run` script itself crashes.
+

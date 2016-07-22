@@ -26,15 +26,15 @@ test: doc test_c
 
 test_c:
 	$(CABAL) test $(ARGS) --test-options \
-		"$(TEST-ARGS) --rerun-update +RTS -N$(TEST-JOBS) -RTS"
+		"$(TEST-ARGS) --codegen=c,none --rerun-update +RTS -N$(TEST-JOBS) -RTS"
 
 test_js:
 	$(CABAL) test $(ARGS) --test-options \
-		"$(TEST-ARGS) --node --rerun-update +RTS -N$(TEST-JOBS) -RTS"
+		"$(TEST-ARGS) --codegen=node --rerun-update +RTS -N$(TEST-JOBS) -RTS"
 
 test_update:
 	$(CABAL) test $(ARGS) --test-options \
-		"$(TEST-ARGS) --accept +RTS -N$(TEST-JOBS) -RTS"
+		"$(TEST-ARGS) --codegen=c,none --accept +RTS -N$(TEST-JOBS) -RTS"
 
 test_clean:
 	rm -f test/*~

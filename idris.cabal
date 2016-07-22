@@ -1177,6 +1177,7 @@ Test-suite regression-and-sanity-tests
                , tasty-rerun >= 1.0.0
                , bytestring
                , transformers
+               , split
   if impl(ghc < 7.10)
     Extensions: DeriveDataTypeable
 
