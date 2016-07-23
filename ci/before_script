@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -ex
+
+case "$1" in
+  pack)
+    cabal sdist
+    ;;
+  unpack)
+    cd ..
+    tar -xf Idris-dev/dist/idris*.tar.gz
+    cd idris*
+    ;;
+  *)
+    echo "No task called $1"
+esac

@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+echo -en "travis_fold:start:script.$1\\r"
+
+set -ex
+
+case "$1" in
+  configure)
+    cabal configure -f FFI -f CI --enable-tests
+    ;;
+  build)
+    cabal build
+    ;;
+  copy)
+    cabal copy
+    ;;
+  register)
+    cabal register
+    ;;
+  cppcheck)
+    if [[ "$TESTS" == "test_c" ]]; then
+      cppcheck -i 'mini-gmp.c' rts;
+    fi
+    ;;
+  tests)
+    for test in $TESTS; do
+      echo "make TEST-JOBS=2 $test";
+      travis_wait make TEST-JOBS=2 $test;
+    done
+    ;;
+  benchmarks)
+    cd benchmarks && ./build.pl && ./run.pl && cd ..
+    ;;
+  *)
+    echo "No task called $1"
+esac
+
+set +x
+echo -en "travis_fold:end:script.$1\\r"

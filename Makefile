@@ -32,6 +32,10 @@ test_js:
 	$(CABAL) test $(ARGS) --test-options \
 		"$(TEST-ARGS) --codegen=node --rerun-update +RTS -N$(TEST-JOBS) -RTS"
 
+test_all:
+	$(CABAL) test --test-options \
+		"${TEST-ARGS} --rerun-update +RTS -N${TEST-JOBS} -RTS"
+
 test_update:
 	$(CABAL) test $(ARGS) --test-options \
 		"$(TEST-ARGS) --codegen=c,none --accept +RTS -N$(TEST-JOBS) -RTS"
