@@ -2,70 +2,9 @@ sudo: false
 
 language: c
 
-addons:
-  apt:
-    sources:
-      - hvr-ghc
-    packages:
-      - ghc-7.6.3
-      - ghc-7.8.4
-      - ghc-7.10.3
-      - ghc-8.0.1
-      - cabal-install-1.20
-      - cabal-install-1.22
-      - cabal-install-1.24
-      # test dependencies
-      - expect
-      - cppcheck
-      - hscolour
-
-matrix:
-  include:
-    - env: CABALVER="1.20" GHCVER="7.6.3" TESTS="test_all"
-      # separate caches for different compiler versions
-      # until https://github.com/travis-ci/travis-ci/issues/4393 is resolved
-      compiler: ": #GHC 7.6.3"
-    - env: CABALVER="1.20" GHCVER="7.8.4" TESTS="test_all"
-      compiler: ": #GHC 7.8.4"
-    - env: CABALVER="1.22" GHCVER="7.10.3" TESTS="lib_doc doc"
-      compiler: ": #GHC 7.10.3"
-    - env: CABALVER="1.22" GHCVER="7.10.3" TESTS="test_all"
-      compiler: ": #GHC 7.10.3"
-    - env: CABALVER="1.24" GHCVER="8.0.1" TESTS="lib_doc doc"
-      compiler: ": #GHC 8.0.1"
-    - env: CABALVER="1.24" GHCVER="8.0.1" TESTS="test_all"
-      compiler: ": #GHC 8.0.1"
-
-cache:
-  directories:
-    - $HOME/.cabsnap
-    - $HOME/.cabal/packages
-
-before_cache:
-  - rm -fv $HOME/.cabal/packages/hackage.haskell.org/build-reports.log
-  - rm -fv $HOME/.cabal/packages/hackage.haskell.org/00-index.tar
-
-before_install:
-  - unset CC
-  - export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$HOME/.cabal/bin:$PATH
-  - env
-
 install:
-  - ci/install version
-  - ci/install unpack
-  - ci/install update
-  - ci/install install
-
-before_script:
-  - ci/before_script pack
-  - ci/before_script unpack
+  - which env
 
 script:
-  - ci/script configure
-  - ci/script build
-  - ci/script copy
-  - ci/script register
-  - ci/script cppcheck
-  - ci/script tests
-  - ci/script benchmarks
+  - which travis_wait
 #
