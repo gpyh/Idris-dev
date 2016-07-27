@@ -223,6 +223,8 @@ function script_tests() (
   start_script_fold "tests"
 
   echo "Perfoming tests..."
+  echo $BUILDPROG
+  echo $CABALVER
   script_tests_$BUILDPROG
   echo "Done."
 
@@ -235,22 +237,19 @@ function script_tests_stack() {
 }
 
 function script_tests_cabal() {
-  for test in $TESTS; do
-    echo "make TEST-JOBS=2 $test";
-    case $CABALVER in
-      "1.20")
-        # travis_wait because cabal only prints the output
-        # when the tests are done, and this can exceed 10 minutes
-        travis_wait make ARGS="--show-details=always" TEST-JOBS=2 $test;
-        ;;
-      "1.22")
-        make ARGS="--show-details=streaming" TEST-JOBS=2 $test;
-        ;;
-      *) # 1.24 and beyond
-        make ARGS="--show-details=direct" TEST-JOBS=2 $test;
-        ;;
-    esac
-  done
+  case $CABALVER in
+    "1.20")
+      # travis_wait because cabal only prints the output
+      # when the tests are done, and this can exceed 10 minutes
+      travis_wait make ARGS="--show-details=always" TEST-JOBS=2 test_all
+      ;;
+    "1.22")
+      make ARGS="--show-details=streaming" TEST-JOBS=2 test_all
+      ;;
+    *) # 1.24 and beyond
+      make ARGS="--show-details=direct" TEST-JOBS=2 test_all
+      ;;
+  esac
   return $?
 }
 
