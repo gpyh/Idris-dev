@@ -148,9 +148,19 @@ function script_tests() (
   echo "Perfoming tests..."
   for test in $TESTS; do
     echo "make TEST-JOBS=2 $test";
-    # travis_wait because cabal only prints the output
-    # when the tests are done, and this can exceed 10 minutes
-    travis_wait make TEST-JOBS=2 $test;
+    case $CABALVER in
+      "1.20")
+        # travis_wait because cabal only prints the output
+        # when the tests are done, and this can exceed 10 minutes
+        travis_wait make ARGS="--show-details=always" TEST-JOBS=2 $test;
+        ;;
+      "1.22")
+        make ARGS="--show-details=streaming" TEST-JOBS=2 $test;
+        ;;
+      *) # 1.24 and beyond
+        make ARGS="--show-details=direct" TEST-JOBS=2 $test;
+        ;;
+    esac
   done
 
   echo "Done."
