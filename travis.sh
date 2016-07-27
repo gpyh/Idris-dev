@@ -136,6 +136,7 @@ function before_script_dist() {
   cd ..
   tar -xf Idris-dev/dist/idris*.tar.gz
   cd idris*
+  pwd
 
   echo "Done."
 }
@@ -146,6 +147,7 @@ function before_script_dist() {
 function script_configure() (
   if [[ "$BUILDPROG" == "stack" ]]; then exit 0; fi
   start_script_fold "configure"
+  pwd
 
   case "$GHCVER" in
     "7.6.3")
