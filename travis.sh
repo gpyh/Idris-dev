@@ -44,8 +44,8 @@ function install_dependencies() (
   sed -i -r 's/(^jobs:).*/\1 2/' $HOME/.cabal/config
   
   echo "Fetching the list of dependencies..."
-  cabal install -f FFI --only-dependencies --enable-tests --dry -v > installplan.txt
-  sed -i -e '1,/^Resolving /d' installplan.txt; cat installplan.txt
+  cabal install -f FFI --only-dependencies --enable-tests --dry -v | \
+    sort | sed -e '1,/^Resolving /d' > installplan.txt
 
   echo "Diff between the fetched list and the cache:"
   if diff -u installplan.txt $HOME/.cabsnap/installplan.txt;
