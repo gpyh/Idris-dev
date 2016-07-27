@@ -4,15 +4,31 @@
 
 # Prepare and output the environment
 function before_install_env() {
-  # Capturing cabal version
-  export CABALVER=${BUILD:6}
   # CC is set by the `compiler` attribute.
   # It is of the form `#GHC-a.b.c`. We capture the version and unsets CC so
   # it does not interfere with C compilation
   export GHCVER=${CC:5}
   unset CC
+  export PATH=/opt/ghc/$GHCVER/bin:$PATH
 
-  export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$HOME/.cabal/bin:$PATH 
+  # BUILDPROG of the form `cabal a.b.c` or `stack a.b.c`
+  export BUILDPROG=${BUILD:0:5}
+  case "$BUILDPROG" in
+    "cabal")
+      export CABALVER=${BUILD:6}
+      export PATH=/opt/cabal/$CABALVER/bin:$HOME/.cabal/bin:$PATH 
+      ;;
+    "stack")
+      mkdir -p ~/.local/bin
+      export PATH=$HOME/.local/bin:$PATH 
+      travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | \
+        tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+      ;;
+    *)
+      "$BUILDPROG is not a supported build program."
+      return 1
+      ;;
+  esac
 
   # Uncomment the following line to enable profiling
   # export GHCRTS='-s'
@@ -28,21 +44,33 @@ function before_install_env() {
 
 # Output versions used
 function install_version() {
-  cabal --version || return $?
+  $BUILDPROG --version || return $?
   ghc --version   || return $?
 }
 
+function install_dependencies() {
+  install_dependencies_$BUILDPROG
+  return $?
+}
+
+function install_dependencies_stack() {
+  stack build --only-dependencies
+}
+
 # Install dependencies or fetch them from the cache
-function install_dependencies() (
+function install_dependencies_cabal() (
   set -e
+
   echo "Unpacking the hackage index..."
   if [ -f $HOME/.cabal/packages/hackage.haskell.org/00-index.tar.gz ];
   then
     zcat $HOME/.cabal/packages/hackage.haskell.org/00-index.tar.gz > \
         $HOME/.cabal/packages/hackage.haskell.org/00-index.tar;
   fi
+
   echo "Cabal update..."
   travis_retry cabal update -v
+
   # Run build with 2 parallel jobs
   # The container environment reports 16 cores,
   # causing cabal's default configuration (jobs: $ncpus)
@@ -86,6 +114,7 @@ function install_dependencies() (
 
 # Pack idris into a distributable archive and untar it right away
 function before_script_dist() {
+  if [[ "$BUILDPROG" == "stack" ]]; then return 0; fi
   echo "Cabal sdist..."
   cabal sdist || return $?
 
@@ -101,6 +130,7 @@ function before_script_dist() {
 
 # Cabal configure
 function script_configure() (
+  if [[ "$BUILDPROG" == "stack" ]]; then exit 0; fi
   start_script_fold "configure"
 
   case "$GHCVER" in
@@ -127,8 +157,8 @@ function script_configure() (
 function script_build() (
   start_script_fold "build"
 
-  echo "Cabal build..."
-  cabal build
+  echo "$BUILDPROG build..."
+  $BUILDPROG build
   
   echo "Done."
   end_script_fold
@@ -136,6 +166,7 @@ function script_build() (
 
 # Cabal copy
 function script_copy() (
+  if [[ "$BUILDPROG" == "stack" ]]; then exit 0; fi
   start_script_fold "copy"
 
   echo "Cabal copy..."
@@ -147,6 +178,7 @@ function script_copy() (
 
 # Cabal register
 function script_register() (
+  if [[ "$BUILDPROG" == "stack" ]]; then exit 0; fi
   start_script_fold "register"
 
   echo "Cabal register..."
@@ -161,32 +193,6 @@ function script_task() {
   return $?
 }
 
-# Perform the tests
-function script_tests() (
-  start_script_fold "tests"
-
-  echo "Cppcheck on mini-gmp.c..."
-  cppcheck -i 'mini-gmp.c' rts;
-
-  echo "Perfoming tests..."
-  case $CABALVER in
-    "1.20")
-      # travis_wait because cabal only prints the output
-      # when the tests are done, and this can exceed 10 minutes
-      travis_wait make ARGS="--show-details=always" TEST-JOBS=2 test_all;
-      ;;
-    "1.22")
-      make ARGS="--show-details=streaming" TEST-JOBS=2 test_all;
-      ;;
-    *) # 1.24 and beyond
-      make ARGS="--show-details=direct" TEST-JOBS=2 test_all;
-      ;;
-  esac
-
-  echo "Done."
-  end_script_fold
-)
-
 function script_docs() (
   start_script_fold "docs"
 
@@ -196,6 +202,43 @@ function script_docs() (
   echo "Done."
   end_script_fold
 )
+
+# Perform the tests
+function script_tests() (
+  if [[ "$BUILDPROG" == "stack" ]]; then exit 0; fi
+  start_script_fold "tests"
+
+  echo "Perfoming tests..."
+  script_tests_$BUILDPROG
+  echo "Done."
+
+  end_script_fold
+)
+
+function script_tests_stack() {
+  stack test --test-arguments="+RTS -N2 -RTS"
+  return $?
+}
+
+function script_tests_cabal() {
+  for test in $TESTS; do
+    echo "make TEST-JOBS=2 $test";
+    case $CABALVER in
+      "1.20")
+        # travis_wait because cabal only prints the output
+        # when the tests are done, and this can exceed 10 minutes
+        travis_wait make ARGS="--show-details=always" TEST-JOBS=2 $test;
+        ;;
+      "1.22")
+        make ARGS="--show-details=streaming" TEST-JOBS=2 $test;
+        ;;
+      *) # 1.24 and beyond
+        make ARGS="--show-details=direct" TEST-JOBS=2 $test;
+        ;;
+    esac
+  done
+  return $?
+}
 
 # Benchmarks
 function script_benchmarks() (

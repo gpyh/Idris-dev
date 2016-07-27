@@ -69,11 +69,20 @@ matrix:
             - *testdeps
             - ghc-8.0.1
             - cabal-install-1.24
+    - env: BUILD="stack 1.1.2" TASK="tests"
+      compiler: "#GHC-8.0.1"
+      addons:
+        apt:
+          sources: *sources
+          packages:
+            - *testdeps
+            - ghc-8.0.1
 
 cache:
   directories:
     - $HOME/.cabsnap
     - $HOME/.cabal/packages
+    - $HOME/.stack
 
 before_cache:
   - rm -fv $HOME/.cabal/packages/hackage.haskell.org/build-reports.log
