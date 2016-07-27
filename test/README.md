@@ -34,16 +34,16 @@ You can pass arguments to idris in each of its invocation by the tests. There ar
 
 ### Specifying the number of parallel jobs
 
-With make, the test suite runs in parallel by default. You can specify the number of threads with `TEST-JOBS`. For stack and cabal, you need to explicitly enable parallelism as you would do with any other GHC-compiled executable. Examples:
+With make, the test suite runs in parallel by default. For stack and cabal, you need to explicitly enable parallelism as you would do with any other GHC-compiled executable. Examples:
 
 ```
-# Two jobs via make
-make TEST-JOBS=2 test_all
-# Two jobs via cabal
-cabal test --test-options="+RTS -N2 -RTS"
-# Two test jobs via stack
-stack test --test-arguments="+RTS -N2 -RTS"
+# Via cabal
+cabal test --test-options="+RTS -N -RTS"
+# Via stack
+stack test --test-arguments="+RTS -N -RTS"
 ```
+
+You can put a specific number of threads to be used after `-N`. This cannot be done using `make`.
 
 ### Running only previously failed tests
 

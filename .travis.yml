@@ -13,10 +13,10 @@ addons:
 
 matrix:
   include:
-    - env: CABALVER="1.20" GHCVER="7.6.3" TESTS="test_all"
+    - env: BUILD="cabal 1.20" TASK="tests"
       # separate caches for different compiler versions
       # until https://github.com/travis-ci/travis-ci/issues/4393 is resolved
-      compiler: ": #GHC 7.6.3"
+      compiler: "#GHC-7.6.3"
       addons:
         apt:
           sources: *sources
@@ -24,8 +24,8 @@ matrix:
             - *testdeps
             - ghc-7.6.3
             - cabal-install-1.20
-    - env: CABALVER="1.20" GHCVER="7.8.4" TESTS="test_all"
-      compiler: ": #GHC 7.8.4"
+    - env: BUILD="cabal 1.20" TASK="tests"
+      compiler: "#GHC-7.8.4"
       addons:
         apt:
           sources: *sources
@@ -33,8 +33,8 @@ matrix:
             - *testdeps
             - ghc-7.8.4
             - cabal-install-1.20
-    - env: CABALVER="1.22" GHCVER="7.10.3" TESTS="lib_doc doc"
-      compiler: ": #GHC 7.10.3"
+    - env: BUILD="cabal 1.22" TASK="docs"
+      compiler: "#GHC-7.10.3"
       addons:
         apt:
           sources: *sources
@@ -42,8 +42,8 @@ matrix:
             - *testdeps
             - ghc-7.10.3
             - cabal-install-1.22
-    - env: CABALVER="1.22" GHCVER="7.10.3" TESTS="test_all"
-      compiler: ": #GHC 7.10.3"
+    - env: BUILD="cabal 1.22" TASK="tests"
+      compiler: "#GHC-7.10.3"
       addons:
         apt:
           sources: *sources
@@ -51,8 +51,8 @@ matrix:
             - *testdeps
             - ghc-7.10.3
             - cabal-install-1.22
-    - env: CABALVER="1.24" GHCVER="8.0.1" TESTS="lib_doc doc"
-      compiler: ": #GHC 8.0.1"
+    - env: BUILD="cabal 1.24" TASK="docs"
+      compiler: "#GHC-8.0.1"
       addons:
         apt:
           sources: *sources
@@ -60,8 +60,8 @@ matrix:
             - *testdeps
             - ghc-8.0.1
             - cabal-install-1.24
-    - env: CABALVER="1.24" GHCVER="8.0.1" TESTS="test_all"
-      compiler: ": #GHC 8.0.1"
+    - env: BUILD="cabal 1.24" TASK="tests"
+      compiler: "#GHC-8.0.1"
       addons:
         apt:
           sources: *sources
@@ -95,7 +95,6 @@ script:
   - script_build
   - script_copy
   - script_register
-  - script_cppcheck
-  - script_tests
+  - script_task
   - script_benchmarks
 #

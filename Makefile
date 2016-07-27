@@ -1,7 +1,5 @@
 .PHONY: build configure doc install linecount nodefault pinstall lib_clean relib fast test_js test_c test_all test test_clean lib_doc lib_doc_clean user_doc_html user_doc_pdf user_docs
 
-ARGS=
-TEST-JOBS=
 TEST-ARGS=
 
 include config.mk
@@ -25,20 +23,20 @@ build: dist/setup-config
 test: doc test_c
 
 test_c:
-	$(CABAL) test $(ARGS) --test-options \
-		"$(TEST-ARGS) --rerun-update +RTS -N$(TEST-JOBS) -RTS"
+	$(CABAL) test --test-options \
+		"--codegen=c,none --rerun-update $(TEST-ARGS) +RTS -N -RTS"
 
 test_js:
-	$(CABAL) test $(ARGS) --test-options \
-		"$(TEST-ARGS) --node --rerun-update +RTS -N$(TEST-JOBS) -RTS"
-
-test_update:
-	$(CABAL) test $(ARGS) --test-options \
-		"$(TEST-ARGS) --accept +RTS -N$(TEST-JOBS) -RTS"
+	$(CABAL) test  --test-options \
+		"--codegen=node --rerun-update $(TEST-ARGS) +RTS -N -RTS"
 
 test_all:
-	$(CABAL) test $(ARGS) --test-options \
-		"$(TEST-ARGS) +RTS -N$(TEST-JOBS) -RTS"
+	$(CABAL) test --test-options \
+		"--rerun-update $(TEST-ARGS) +RTS -N -RTS"
+
+test_update:
+	$(CABAL) test --test-options \
+		"--accept $(TEST-ARGS) +RTS -N -RTS"
 
 test_clean:
 	rm -f test/*~

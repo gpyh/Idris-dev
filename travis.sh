@@ -4,8 +4,16 @@
 
 # Prepare and output the environment
 function before_install_env() {
-  unset CC # Set by the "compiler" attribute (it's a hack)
+  # Capturing cabal version
+  export CABALVER=${BUILD:6}
+  # CC is set by the `compiler` attribute.
+  # It is of the form `#GHC-a.b.c`. We capture the version and unsets CC so
+  # it does not interfere with C compilation
+  export GHCVER=${CC:5}
+  unset CC
+
   export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$HOME/.cabal/bin:$PATH 
+
   env || return $?
 }
 
@@ -128,40 +136,42 @@ function script_register() (
   end_script_fold
 )
 
-# Static analysis of the GMP part of C the runtime
-function script_cppcheck() (
-  start_script_fold "cppcheck"
-
-  echo "Cppcheck on mini-gmp.c..."
-  if [[ "$TESTS" == "test_all" || "$TESTS" == "test_c" ]]; then
-    cppcheck -i 'mini-gmp.c' rts;
-  fi
-
-  echo "Done."
-  end_script_fold
-)
+function script_task() {
+  script_$TASK
+  return $?
+}
 
 # Perform the tests
 function script_tests() (
   start_script_fold "tests"
 
+  echo "Cppcheck on mini-gmp.c..."
+  cppcheck -i 'mini-gmp.c' rts;
+
   echo "Perfoming tests..."
-  for test in $TESTS; do
-    echo "make TEST-JOBS=2 $test";
-    case $CABALVER in
-      "1.20")
-        # travis_wait because cabal only prints the output
-        # when the tests are done, and this can exceed 10 minutes
-        travis_wait make ARGS="--show-details=always" TEST-JOBS=2 $test;
-        ;;
-      "1.22")
-        make ARGS="--show-details=streaming" TEST-JOBS=2 $test;
-        ;;
-      *) # 1.24 and beyond
-        make ARGS="--show-details=direct" TEST-JOBS=2 $test;
-        ;;
-    esac
-  done
+  case $CABALVER in
+    "1.20")
+      # travis_wait because cabal only prints the output
+      # when the tests are done, and this can exceed 10 minutes
+      travis_wait make ARGS="--show-details=always" TEST-JOBS=2 test_all;
+      ;;
+    "1.22")
+      make ARGS="--show-details=streaming" TEST-JOBS=2 test_all;
+      ;;
+    *) # 1.24 and beyond
+      make ARGS="--show-details=direct" TEST-JOBS=2 test_all;
+      ;;
+  esac
+
+  echo "Done."
+  end_script_fold
+)
+
+function script_docs() (
+  start_script_fold "docs"
+
+  echo "Generation documentation..."
+  make -j2 lib_doc doc
 
   echo "Done."
   end_script_fold
