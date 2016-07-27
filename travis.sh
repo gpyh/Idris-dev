@@ -133,7 +133,7 @@ function script_cppcheck() (
   start_script_fold "cppcheck"
 
   echo "Cppcheck on mini-gmp.c..."
-  if [[ "$TESTS" == "test_c" ]]; then
+  if [[ "$TESTS" == "test_all" || "$TESTS" == "test_c" ]]; then
     cppcheck -i 'mini-gmp.c' rts;
   fi
 

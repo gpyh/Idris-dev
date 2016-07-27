@@ -2,8 +2,11 @@
 
 ## Running the test suite
 
-Do `make test_c` or `make test_js`. It will run the tests in parallel and through `cabal test`.
+Do `make test_all` to run the whole test suite. It will run in parallel, using `cabal test`. Both the C code generator and the node code generator will be used. Use the respective `make test_c` and `make test_js` to only use one of them.
+
 You can also manually call `cabal test` or `stack test`.
+
+Note that cabal will only print the report when all tests are done. Provided your version of cabal supports it, you can do `cabal test --show-details=direct` to output the report in real time.
 
 ### Passing arguments
 
@@ -13,14 +16,17 @@ You can pass arguments to the test program. For example, to pass the `--help` ar
 
 ```
 # Via make
-make TEST-ARGS="--help" test_c
+make TEST-ARGS="--help" test_all
 # Via cabal
 cabal test --test-options="--help"
 # Via stack
 stack test --test-arguments="--help"
 ```
 
-Try it to learn more about the other arguments you can provide. Two are of particular interest: `--node` to test against the Node code generator and `--pattern <regex>` to only run the test that match the provided `<regex>`.
+Try it to learn more about the other arguments you can provide. Two are of particular interest:
+
+- `--codegen` takes a comma-separated list of code generators and will run the test suite with those. You can use any value that would otherwise be valid with the idris option of the same name. A code generator named `none` is used as a placeholder to run tests that don't involve code generation. You should not use this option with `make test_c` and `make test_js` as they set it already.
+- `--pattern` takes a regular expression and will only run the tests that match it.
 
 #### To idris
 
@@ -31,9 +37,9 @@ You can pass arguments to idris in each of its invocation by the tests. There ar
 With make, the test suite runs in parallel by default. You can specify the number of threads with `TEST-JOBS`. For stack and cabal, you need to explicitly enable parallelism as you would do with any other GHC-compiled executable. Examples:
 
 ```
-# Two test jobs via make
-make TEST-JOBS=2 test_c
-# Two test jobs via cabal
+# Two jobs via make
+make TEST-JOBS=2 test_all
+# Two jobs via cabal
 cabal test --test-options="+RTS -N2 -RTS"
 # Two test jobs via stack
 stack test --test-arguments="+RTS -N2 -RTS"
@@ -41,7 +47,7 @@ stack test --test-arguments="+RTS -N2 -RTS"
 
 ### Running only previously failed tests
 
-Because of the `--rerun-update` option, `make test_c` will create a `.tasty-rerun-log` file in the root directory of the project. Each time the test suite is run, the file will be written with the result of the tests. The next time you do `make test`, you can specify the `rerun-filter` argument to, for example, only run previously failed tests. Valid values are given in the `--help`.
+Because of the `--rerun-update` option, `make test_all` will create a `.tasty-rerun-log` file in the root directory of the project. Each time the test suite is run, the file will be written with the result of the tests. The next time you do `make test_all`, you can specify the `rerun-filter` argument to, for example, only run previously failed tests. Valid values are given in the `--help`.
 
 ## Extending the test suite
 

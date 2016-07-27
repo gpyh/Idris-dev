@@ -1,4 +1,4 @@
-.PHONY: build configure doc install linecount nodefault pinstall lib_clean relib fast test_js test_c test test_clean lib_doc lib_doc_clean user_doc_html user_doc_pdf user_docs
+.PHONY: build configure doc install linecount nodefault pinstall lib_clean relib fast test_js test_c test_all test test_clean lib_doc lib_doc_clean user_doc_html user_doc_pdf user_docs
 
 ARGS=
 TEST-JOBS=
@@ -35,6 +35,10 @@ test_js:
 test_update:
 	$(CABAL) test $(ARGS) --test-options \
 		"$(TEST-ARGS) --accept +RTS -N$(TEST-JOBS) -RTS"
+
+test_all:
+	$(CABAL) test $(ARGS) --test-options \
+		"$(TEST-ARGS) +RTS -N$(TEST-JOBS) -RTS"
 
 test_clean:
 	rm -f test/*~
