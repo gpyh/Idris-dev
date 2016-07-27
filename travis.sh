@@ -103,8 +103,21 @@ function before_script_dist() {
 function script_configure() (
   start_script_fold "configure"
 
+  case "$GHCVER" in
+    "7.6.3")
+      ghcopts="+RTS -A128m -RTS"
+      ;;
+    "7.8.4")
+      ghcopts="+RTS -A128m -RTS"
+      ;;
+    *) # 7.10.x and beyond
+      ghcopts="-j2 +RTS -A128m -n2m -RTS"
+      ;;
+  esac
+
   echo "Cabal configure..."
-  cabal configure -f FFI -f CI --enable-tests
+  cabal configure -f FFI -f CI --enable-tests \
+    --ghc-options="$ghcopts"
 
   echo "Done."
   end_script_fold
