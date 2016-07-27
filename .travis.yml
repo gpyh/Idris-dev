@@ -69,7 +69,7 @@ matrix:
             - *testdeps
             - ghc-8.0.1
             - cabal-install-1.24
-    - env: BUILD="stack" TASK="tests"
+    - env: BUILD="stack lts-6" TASK="tests"
       compiler: "#GHC-8.0.1"
       addons:
         apt:
@@ -77,7 +77,7 @@ matrix:
           packages:
             - *testdeps
             - ghc-8.0.1
-    - env: BUILD="stack" TASK="tests"
+    - env: BUILD="stack lts-6" TASK="tests"
       compiler: "#GHC-8.0.1"
       os: osx
 

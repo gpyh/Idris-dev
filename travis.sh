@@ -9,16 +9,19 @@ function before_install_env() {
   # it does not interfere with C compilation
   export GHCVER=${CC:5}
   unset CC
-  export PATH=/opt/ghc/$GHCVER/bin:$PATH
 
   # BUILDPROG of the form `cabal a.b.c` or `stack a.b.c`
   export BUILDPROG=${BUILD:0:5}
   case "$BUILDPROG" in
     "cabal")
       export CABALVER=${BUILD:6}
+      export PATH=/opt/ghc/$GHCVER/bin:$PATH
       export PATH=/opt/cabal/$CABALVER/bin:$HOME/.cabal/bin:$PATH 
       ;;
     "stack")
+      if [ ! -z "${BUILD:6}"]; then
+        export RESOLVER="--resolver ${BUILD:6}"
+      fi
       mkdir -p ~/.local/bin
       export PATH=$HOME/.local/bin:$PATH 
       if [[ $(uname) == "Darwin" ]]; then
@@ -54,7 +57,9 @@ function before_install_env() {
 # Output versions used
 function install_version() {
   $BUILDPROG --version || return $?
-  ghc --version   || return $?
+  if [[ $BUILDPROG == "cabal" ]]; then
+    ghc --version   || return $?
+  fi;
 }
 
 function install_dependencies() {
@@ -63,7 +68,7 @@ function install_dependencies() {
 }
 
 function install_dependencies_stack() {
-  stack build --only-dependencies
+  stack build $RESOLVER --only-dependencies
 }
 
 # Install dependencies or fetch them from the cache
@@ -225,7 +230,7 @@ function script_tests() (
 )
 
 function script_tests_stack() {
-  stack test --test-arguments="+RTS -N2 -RTS"
+  stack test $RESOLVER --test-arguments="+RTS -N2 -RTS"
   return $?
 }
 
