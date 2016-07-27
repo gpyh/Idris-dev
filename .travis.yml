@@ -13,44 +13,44 @@ addons:
 
 matrix:
   include:
-    - env: BUILD="cabal 1.20" TASK="tests"
-      # separate caches for different compiler versions
-      # until https://github.com/travis-ci/travis-ci/issues/4393 is resolved
-      compiler: "#GHC-7.6.3"
-      addons:
-        apt:
-          sources: *sources
-          packages:
-            - *testdeps
-            - ghc-7.6.3
-            - cabal-install-1.20
-    - env: BUILD="cabal 1.20" TASK="tests"
-      compiler: "#GHC-7.8.4"
-      addons:
-        apt:
-          sources: *sources
-          packages:
-            - *testdeps
-            - ghc-7.8.4
-            - cabal-install-1.20
-    - env: BUILD="cabal 1.22" TASK="docs"
-      compiler: "#GHC-7.10.3"
-      addons:
-        apt:
-          sources: *sources
-          packages:
-            - *testdeps
-            - ghc-7.10.3
-            - cabal-install-1.22
-    - env: BUILD="cabal 1.22" TASK="tests"
-      compiler: "#GHC-7.10.3"
-      addons:
-        apt:
-          sources: *sources
-          packages:
-            - *testdeps
-            - ghc-7.10.3
-            - cabal-install-1.22
+    # - env: BUILD="cabal 1.20" TASK="tests"
+    #   # separate caches for different compiler versions
+    #   # until https://github.com/travis-ci/travis-ci/issues/4393 is resolved
+    #   compiler: "#GHC-7.6.3"
+    #   addons:
+    #     apt:
+    #       sources: *sources
+    #       packages:
+    #         - *testdeps
+    #         - ghc-7.6.3
+    #         - cabal-install-1.20
+    # - env: BUILD="cabal 1.20" TASK="tests"
+    #   compiler: "#GHC-7.8.4"
+    #   addons:
+    #     apt:
+    #       sources: *sources
+    #       packages:
+    #         - *testdeps
+    #         - ghc-7.8.4
+    #         - cabal-install-1.20
+    # - env: BUILD="cabal 1.22" TASK="docs"
+    #   compiler: "#GHC-7.10.3"
+    #   addons:
+    #     apt:
+    #       sources: *sources
+    #       packages:
+    #         - *testdeps
+    #         - ghc-7.10.3
+    #         - cabal-install-1.22
+    # - env: BUILD="cabal 1.22" TASK="tests"
+    #   compiler: "#GHC-7.10.3"
+    #   addons:
+    #     apt:
+    #       sources: *sources
+    #       packages:
+    #         - *testdeps
+    #         - ghc-7.10.3
+    #         - cabal-install-1.22
     - env: BUILD="cabal 1.24" TASK="docs"
       compiler: "#GHC-8.0.1"
       addons:
@@ -69,7 +69,7 @@ matrix:
             - *testdeps
             - ghc-8.0.1
             - cabal-install-1.24
-    - env: BUILD="stack 1.1.2" TASK="tests"
+    - env: BUILD="stack" TASK="tests"
       compiler: "#GHC-8.0.1"
       addons:
         apt:
@@ -77,6 +77,10 @@ matrix:
           packages:
             - *testdeps
             - ghc-8.0.1
+    - env: BUILD="stack" TASK="tests"
+      compiler: "#GHC-8.0.1"
+      os: osx
+
 
 cache:
   directories:

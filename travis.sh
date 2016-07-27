@@ -21,8 +21,15 @@ function before_install_env() {
     "stack")
       mkdir -p ~/.local/bin
       export PATH=$HOME/.local/bin:$PATH 
-      travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | \
-        tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+      if [[ $(uname) == "Darwin" ]]; then
+        travis_retry \
+          curl --insecure -L https://www.stackage.org/stack/osx-x86_64 | \
+          tar xz --strip-components=1 --include '*/stack' -C ~/.local/bin
+      else
+        travis_retry \
+          curl -L https://www.stackage.org/stack/linux-x86_64 | \
+          tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+      fi
       ;;
     *)
       "$BUILDPROG is not a supported build program."
@@ -36,8 +43,10 @@ function before_install_env() {
   echo "Environment:"
   env || return $?
 
-  echo "VM stats:"
-  vmstat -s || return $?
+  if [[ $(uname) != "Darwin" ]]; then
+    echo "VM stats:"
+    vmstat -s || return $?
+  fi
 }
 
 ## install
