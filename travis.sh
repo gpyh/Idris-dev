@@ -14,7 +14,14 @@ function before_install_env() {
 
   export PATH=/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$HOME/.cabal/bin:$PATH 
 
+  # Uncomment the following line to enable profiling
+  # export GHCRTS='-s'
+
+  echo "Environment:"
   env || return $?
+
+  echo "VM stats:"
+  vmstat -s || return $?
 }
 
 ## install
